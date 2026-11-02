@@ -8,3 +8,4 @@ samples/
 *.raf
 *.RAF
 BRIEF.md
+.claude/
