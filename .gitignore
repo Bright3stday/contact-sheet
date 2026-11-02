@@ -1,0 +1,10 @@
+# Private: never publish photos or personal notes (the GitHub Pages repo is public)
+samples/
+*.jpg
+*.JPG
+*.jpeg
+*.arw
+*.ARW
+*.raf
+*.RAF
+BRIEF.md

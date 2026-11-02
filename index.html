@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact Sheet</title>
+  <meta name="theme-color" content="#1c1c1c">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header id="toolbar">
+    <button id="open">Open</button>
+    <!-- no accept filter: an image-only accept makes Android use its photo picker, which renames files -->
+    <input id="files" type="file" multiple hidden>
+    <button id="filter" disabled>Rated only</button>
+    <span class="group">
+      <button class="tool" data-tool="select" aria-pressed="true">Select</button>
+      <button class="tool" data-tool="pen" aria-pressed="false">Pen</button>
+      <button class="tool" data-tool="box" aria-pressed="false">Box</button>
+      <button class="tool" data-tool="eraser" aria-pressed="false">Eraser</button>
+    </span>
+    <button id="undo">Undo</button>
+    <button id="clear">Clear</button>
+    <span class="spacer"></span>
+    <button id="prev" disabled>&lsaquo;</button>
+    <span id="page">–</span>
+    <button id="next" disabled>&rsaquo;</button>
+    <span class="spacer"></span>
+    <button id="export">Export</button>
+    <button id="marks-export">Export marks</button>
+    <button id="marks-import">Import marks</button>
+    <input id="marks-file" type="file" accept=".json,application/json" hidden>
+    <progress id="progress" max="1" hidden></progress>
+    <span id="status"></span>
+  </header>
+  <main id="stage">
+    <canvas id="sheet"></canvas>
+  </main>
+  <div id="loupe" hidden>
+    <header class="bar">
+      <button id="loupe-close">Close</button>
+      <span class="spacer"></span>
+      <button id="loupe-prev">&lsaquo;</button>
+      <span id="loupe-label"></span>
+      <button id="loupe-next">&rsaquo;</button>
+      <span class="spacer"></span>
+      <button id="loupe-share" hidden>Share JPEG</button>
+      <button id="loupe-share-raw" hidden>Share RAW</button>
+      <button id="loupe-zoom">100%</button>
+    </header>
+    <canvas id="loupe-canvas"></canvas>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

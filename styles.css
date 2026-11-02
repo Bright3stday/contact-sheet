@@ -1,0 +1,93 @@
+:root {
+  --bg: #111;
+  --bar: #1c1c1c;
+  --text: #ddd;
+  --muted: #888;
+  --line: #333;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px system-ui, sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#toolbar, #loupe .bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+}
+
+#toolbar { flex-wrap: wrap; }
+
+.spacer { flex: 1; }
+
+.group { display: flex; }
+.group button { border-radius: 0; }
+.group button:first-child { border-radius: 4px 0 0 4px; }
+.group button:last-child { border-radius: 0 4px 4px 0; }
+
+button[aria-pressed="true"] {
+  background: #5a1d1d;
+  border-color: #c33;
+}
+
+button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 12px;
+  background: #2a2a2a;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+button:disabled { color: var(--muted); }
+
+#page { min-width: 64px; text-align: center; }
+#status { color: var(--muted); }
+#progress { width: 160px; accent-color: #c33; }
+
+#stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+#sheet { display: block; touch-action: none; }
+
+#loupe {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+#loupe[hidden] { display: none; }
+
+#loupe-label { min-width: 200px; text-align: center; font-family: "Courier New", monospace; }
+
+#loupe-canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  touch-action: none;
+  cursor: grab;
+}
