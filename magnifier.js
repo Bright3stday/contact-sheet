@@ -1,4 +1,4 @@
-// Magnifier: a round lens that follows the hovering S Pen (or mouse) and shows the sheet under
+// Magnifier: a round lens that follows the hovering S Pen and shows the sheet under
 // the tip larger. It sits just above the tip, so neither the pen nor the hand covers it.
 import { decodeThumb } from './sheet.js';
 

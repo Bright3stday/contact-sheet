@@ -2,7 +2,8 @@
 import { cellAt } from './sheet.js';
 
 // picks: frame keys. items: per sheet layout ("r0" = rated-only sheet 1, "a2" = all-frames
-// sheet 3) a list of { type: 'pen', points: [[x, y, pressure]] } or { type: 'box', x, y, w, h }.
+// sheet 3) a list of { type: 'pen', points: [[x, y, pressure]], size? } or { type: 'box', x, y, w, h }.
+// size: line width relative to normal, set for strokes drawn zoomed in (1 / zoom).
 export const marks = { picks: new Set(), items: {} };
 
 const undoStacks = {};   // sheet layout key -> [undo functions]
@@ -14,7 +15,7 @@ const $ = id => document.getElementById(id);
 // hooks: canvas, current() -> { key, cells }, render(), openLoupe(cellIndex),
 //        session() -> { ratedOnly, frames }, importSession(session),
 //        toSheet(clientX, clientY) -> [x, y], sheetPerCss() -> sheet units per CSS px,
-//        zoomAt(factor, clientX, clientY), panBy(dxCss, dyCss)
+//        zoomAt(factor, clientX, clientY), panBy(dxCss, dyCss), zoom() -> 1..4
 export function initMarks(hooks) {
   app = hooks;
   for (const b of document.querySelectorAll('.tool')) {
@@ -124,7 +125,9 @@ function attachInput(canvas) {
       p0: p, moved: false, item: null, list };
 
     if (mode === 'pen') {
+      // zoomed in, the line is as fine as it looks on screen, so small writing stays legible
       active.item = { type: 'pen', points: [[...p, pressure(e)]] };
+      if (app.zoom() > 1) active.item.size = round(1 / app.zoom(), 100);
       list.push(active.item);
     } else if (mode === 'box') {
       const grab = grabBox(list, p, reach());

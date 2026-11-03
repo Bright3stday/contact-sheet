@@ -118,6 +118,7 @@ initMarks({
   session: () => ({ ratedOnly: state.ratedOnly, frames: state.frames }),
   toSheet,
   sheetPerCss: () => canvas.width / canvas.getBoundingClientRect().width / viewScale(),
+  zoom: () => view.zoom,
   zoomAt,
   panBy,
   importSession: session => {
@@ -321,7 +322,7 @@ canvas.addEventListener('wheel', e => {
   zoomAt(Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
 }, { passive: false });
 
-// ---- Magnifier: a lens that follows the hovering S Pen (or mouse) ----
+// ---- Magnifier: a lens that follows the hovering S Pen ----
 
 // It opens when the pen rests over a frame for a moment (a pen on its way to tap or draw keeps
 // moving), then follows the pen until it touches down or is lifted out of range.
@@ -338,10 +339,22 @@ let quietCell = -1;   // the frame just tapped or drawn on stays quiet until the
 
 const cellUnder = (x, y) => state.sheets[state.current] ? cellAt(...toSheet(x, y)) : -1;
 
+// Pen only: a mouse pointer is always over the sheet, so the lens would never go away.
+// Android can be slow to report the pen leaving hover range; a hovering pen keeps sending small
+// moves, so a quiet spell of LENS_IDLE_MS is taken as the pen being lifted away.
+const LENS_IDLE_MS = 400;
+let idleTimer = 0;
+
 canvas.addEventListener('pointermove', e => {
-  if (e.pointerType === 'touch') return;
+  if (e.pointerType !== 'pen') return;
   if (e.buttons || !magnifierOn) { unhover(); return; }
-  if (lensAt) { lensAt = { x: e.clientX, y: e.clientY }; scheduleLens(); return; }
+  if (lensAt) {
+    lensAt = { x: e.clientX, y: e.clientY };
+    scheduleLens();
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(unhover, LENS_IDLE_MS);
+    return;
+  }
   if (hoverAt && Math.hypot(e.clientX - hoverAt.x, e.clientY - hoverAt.y) <= STILL_PX) return;
   clearTimeout(hoverTimer);
   const at = hoverAt = { x: e.clientX, y: e.clientY };
@@ -349,7 +362,11 @@ canvas.addEventListener('pointermove', e => {
   if (i !== quietCell) quietCell = -1;
   else return;
   if (!state.sheets[state.current]?.cells[i]) return;
-  hoverTimer = setTimeout(() => { lensAt = at; scheduleLens(); }, HOVER_MS);
+  hoverTimer = setTimeout(() => {
+    lensAt = at;
+    scheduleLens();
+    idleTimer = setTimeout(unhover, LENS_IDLE_MS);
+  }, HOVER_MS);
 });
 canvas.addEventListener('pointerdown', e => { unhover(); quietCell = cellUnder(e.clientX, e.clientY); });
 canvas.addEventListener('pointerleave', () => { unhover(); quietCell = -1; });
@@ -377,6 +394,7 @@ function paintLens() {
 
 function unhover() {
   clearTimeout(hoverTimer);
+  clearTimeout(idleTimer);
   hoverAt = lensAt = null;
   hideLens();
 }

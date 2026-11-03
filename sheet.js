@@ -120,9 +120,9 @@ function drawMarks(ctx, sheet, marks) {
       g.strokeRect(it.x, it.y, it.w, it.h);
       continue;
     }
-    const pts = it.points;
+    const pts = it.points, w = PEN_W * (it.size ?? 1);
     for (let i = 1; i < pts.length; i++) {
-      g.lineWidth = PEN_W * (0.3 + 1.4 * pts[i][2]);
+      g.lineWidth = w * (0.3 + 1.4 * pts[i][2]);
       g.beginPath();
       g.moveTo(pts[i - 1][0], pts[i - 1][1]);
       g.lineTo(pts[i][0], pts[i][1]);
