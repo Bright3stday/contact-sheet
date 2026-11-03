@@ -2,7 +2,7 @@
 import { filesFromFolder, filesFromInput, scanFrames } from './scan.js';
 import { SHEET_W, SHEET_H, PER_SHEET, buildSheets, cellAt, cellRect, drawSheet, getBitmap, keepBitmaps, keepSharp } from './sheet.js';
 import { openLoupe } from './loupe.js';
-import { showMagnifier, hideMagnifier } from './magnifier.js';
+import { showLens, hideLens, lensBitmap } from './magnifier.js';
 import { marks, initMarks, sheetItems, applySession, resetMarks, findSavedSession, saveSession } from './marks.js';
 import { exportAll } from './export.js';
 
@@ -217,11 +217,17 @@ function render() {
   if (!sheet || !canvas.width || !canvas.height) return;   // not laid out yet
   const s = viewScale();
   ctx.setTransform(s, 0, 0, s, canvas.width / 2 - view.cx * s, canvas.height / 2 - view.cy * s);
+  paintSheet(ctx, getBitmap);
+  updateStatus();
+}
+
+// The current sheet with its marks, through whatever transform ctx has (screen or lens).
+function paintSheet(ctx, bitmaps) {
+  const sheet = state.sheets[state.current];
   const last = state.current === state.sheets.length - 1;
   const key = (state.ratedOnly ? 'r' : 'a') + state.current;
-  drawSheet(ctx, sheet, state.sheets.length, last ? state.trailingSkip : 0, getBitmap,
+  drawSheet(ctx, sheet, state.sheets.length, last ? state.trailingSkip : 0, bitmaps,
     { picks: marks.picks, items: sheetItems(key) });
-  updateStatus();
 }
 
 // The canvas fills the stage; the sheet is drawn into it through the view.
@@ -310,16 +316,19 @@ canvas.addEventListener('wheel', e => {
   zoomAt(Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
 }, { passive: false });
 
-// ---- Magnifier: hold the S Pen (or mouse) over a frame to see it larger beside the sheet ----
+// ---- Magnifier: a lens that follows the hovering S Pen (or mouse) ----
 
-// Only a pen held still opens it: a pen on its way to tap or draw keeps moving, and any
-// movement beyond STILL_PX closes it again.
-const HOVER_MS = 600;
+// It opens when the pen rests over a frame for a moment (a pen on its way to tap or draw keeps
+// moving), then follows the pen until it touches down or is lifted out of range.
+const HOVER_MS = 500;
 const STILL_PX = 8;
+const LENS_ZOOM = 2.5;   // relative to the sheet as shown
 let magnifierOn = true;
 try { magnifierOn = localStorage.getItem('magnifier') !== 'off'; } catch {}
 let hoverAt = null;   // where the pen came to rest, in client px
 let hoverTimer = 0;
+let lensAt = null;    // pen position while the lens is open
+let lensPending = false;
 let quietCell = -1;   // the frame just tapped or drawn on stays quiet until the pen leaves it
 
 const cellUnder = (x, y) => state.sheets[state.current] ? cellAt(...toSheet(x, y)) : -1;
@@ -327,24 +336,44 @@ const cellUnder = (x, y) => state.sheets[state.current] ? cellAt(...toSheet(x, y
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') return;
   if (e.buttons || !magnifierOn) { unhover(); return; }
+  if (lensAt) { lensAt = { x: e.clientX, y: e.clientY }; scheduleLens(); return; }
   if (hoverAt && Math.hypot(e.clientX - hoverAt.x, e.clientY - hoverAt.y) <= STILL_PX) return;
-  unhover();
+  clearTimeout(hoverTimer);
   const at = hoverAt = { x: e.clientX, y: e.clientY };
   const i = cellUnder(at.x, at.y);
   if (i !== quietCell) quietCell = -1;
   else return;
-  hoverTimer = setTimeout(() => {
-    const cell = state.sheets[state.current]?.cells[i];
-    if (cell) showMagnifier(cell, $('stage').getBoundingClientRect(), at.x);
-  }, HOVER_MS);
+  if (!state.sheets[state.current]?.cells[i]) return;
+  hoverTimer = setTimeout(() => { lensAt = at; scheduleLens(); }, HOVER_MS);
 });
 canvas.addEventListener('pointerdown', e => { unhover(); quietCell = cellUnder(e.clientX, e.clientY); });
 canvas.addEventListener('pointerleave', () => { unhover(); quietCell = -1; });
 
+function scheduleLens() {
+  if (lensPending) return;
+  lensPending = true;
+  requestAnimationFrame(() => { lensPending = false; paintLens(); });
+}
+
+function paintLens() {
+  if (!lensAt || !state.sheets[state.current]) return;
+  const { x, y } = lensAt;
+  showLens(x, y, (lctx, px) => {
+    const [sx, sy] = toSheet(x, y);
+    const s = viewScale() * LENS_ZOOM;
+    const under = state.sheets[state.current].cells[cellAt(sx, sy)]?.frame;
+    const sharp = under && lensBitmap(under, cellRect(0).h * s, scheduleLens);
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    lctx.clearRect(0, 0, px, px);
+    lctx.setTransform(s, 0, 0, s, px / 2 - sx * s, px / 2 - sy * s);
+    paintSheet(lctx, f => (f === under && sharp) || getBitmap(f));
+  });
+}
+
 function unhover() {
   clearTimeout(hoverTimer);
-  hoverAt = null;
-  hideMagnifier();
+  hoverAt = lensAt = null;
+  hideLens();
 }
 
 function setMagnifier(on) {

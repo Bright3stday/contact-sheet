@@ -1,61 +1,72 @@
-// Magnifier: a larger view of the frame under the hovering S Pen or mouse, shown on the half
-// of the stage away from the pointer so it never covers the frame being looked at.
-import { decodeThumb, getBitmap } from './sheet.js';
+// Magnifier: a round lens that follows the hovering S Pen (or mouse) and shows the sheet under
+// the tip larger. It sits just above the tip, so neither the pen nor the hand covers it.
+import { decodeThumb } from './sheet.js';
 
-const WIDTH = 0.46;      // of the stage width
+const SIZE = 300;          // lens diameter, CSS px
+const GAP = 28;            // between the tip and the lens edge
+const SHARP_MAX_H = 1280;
 
 const $ = id => document.getElementById(id);
-const box = $('magnifier');
+const lens = $('magnifier');
 const canvas = $('magnifier-canvas');
 const ctx = canvas.getContext('2d');
+lens.style.width = lens.style.height = SIZE + 'px';
 
-let frame = null;        // frame shown
-let image = null;        // its decode at the magnifier size (owned here)
-let token = 0;
-
-// cell: { frame, number }; stage: the stage's client rect; x: pointer clientX
-export function showMagnifier(cell, stage, x) {
-  const w = Math.round(stage.width * WIDTH), h = Math.round(w * 2 / 3);
-  box.style.width = w + 'px';
-  box.style.left = (x < stage.left + stage.width / 2 ? stage.right - w - 16 : stage.left + 16) + 'px';
-  box.style.top = Math.max(stage.top + 8, stage.top + (stage.height - h) / 2 - 20) + 'px';
-  box.hidden = false;
-  if (cell.frame === frame) return;
-
-  frame = cell.frame;
-  $('magnifier-label').textContent = `${cell.number}  ${frame.name}  ${frame.time.slice(11, 19)}`;
-  canvas.style.height = h + 'px';
-  canvas.width = Math.round(w * devicePixelRatio);
-  canvas.height = Math.round(h * devicePixelRatio);
-  image?.close();
-  image = null;
-  draw(getBitmap(frame));   // the sheet thumbnail until the sharper decode arrives
-
-  if (!frame.jpg && !frame.raw) return;
-  const t = ++token, f = frame;
-  decodeThumb(f, canvas.height)
-    .then(bm => {
-      if (t !== token) { bm.close(); return; }
-      image = bm;
-      draw(bm);
-    })
-    .catch(e => console.warn('magnifier decode failed', f.name, e));
+// x, y: pen tip in client px. paint(ctx, px) draws the lens content into a px × px canvas,
+// with the point under the tip at its centre.
+export function showLens(x, y, paint) {
+  let left = x - SIZE / 2, top = y - GAP - SIZE;
+  if (top < 0) {             // no room above: beside the tip, on the left unless that is off screen too
+    top = y - SIZE / 2;
+    left = x - GAP - SIZE < 0 ? x + GAP : x - GAP - SIZE;
+  }
+  lens.style.left = left + 'px';
+  lens.style.top = top + 'px';
+  const px = Math.round(SIZE * devicePixelRatio);
+  if (canvas.width !== px) canvas.width = canvas.height = px;
+  lens.hidden = false;
+  paint(ctx, px);
 }
 
-export function hideMagnifier() {
-  token++;
-  frame = null;
-  image?.close();
-  image = null;
-  box.hidden = true;
+export function hideLens() {
+  lens.hidden = true;
+  want = null;
+  sharp?.bm.close();
+  sharp = null;
 }
 
-function draw(bm) {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (!bm) return;
-  const s = Math.min(canvas.width / bm.width, canvas.height / bm.height);
-  const w = bm.width * s, h = bm.height * s;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bm, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+// A sharper decode of the frame under the lens, at about the height it is shown. Returns the best
+// bitmap of that frame so far (or null) and calls ready() when a better one arrives. One decode
+// at a time, always for the latest frame asked for, so sweeping the pen across a sheet doesn't
+// pile up work.
+let sharp = null;   // { frame, h, bm }
+let want = null;    // { frame, h, ready }
+let busy = false;
+
+export function lensBitmap(frame, height, ready) {
+  if (!frame.jpg && !frame.raw) return null;
+  const h = Math.min(SHARP_MAX_H, Math.ceil(height / 160) * 160);
+  if (sharp?.frame === frame && sharp.h >= h) return sharp.bm;
+  if (!want || want.frame !== frame || want.h < h) { want = { frame, h, ready }; pump(); }
+  return sharp?.frame === frame ? sharp.bm : null;
+}
+
+async function pump() {
+  if (busy || !want) return;
+  const w = want;
+  busy = true;
+  try {
+    const bm = await decodeThumb(w.frame, w.h);
+    if (want === w) {
+      sharp?.bm.close();
+      sharp = { frame: w.frame, h: w.h, bm };
+      want = null;
+      w.ready();
+    } else bm.close();
+  } catch (e) {
+    console.warn('magnifier decode failed', w.frame.name, e);
+    if (want === w) want = null;
+  }
+  busy = false;
+  pump();
 }

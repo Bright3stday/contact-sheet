@@ -82,21 +82,15 @@ body.compact #toolbar .full { display: none; }
 #magnifier {
   position: fixed;
   pointer-events: none;
-  background: #000;
-  border: 1px solid #444;
+  border: 2px solid #666;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #141414;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 
 #magnifier[hidden] { display: none; }
-#magnifier-canvas { display: block; width: 100%; }
-
-#magnifier-label {
-  padding: 6px 10px;
-  background: #141414;
-  color: #d9b25f;
-  font: 15px "Courier New", monospace;
-  white-space: pre;
-}
+#magnifier-canvas { display: block; width: 100%; height: 100%; }
 
 #loupe {
   position: fixed;

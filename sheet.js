@@ -91,11 +91,13 @@ export function drawSheet(ctx, sheet, sheetCount, trailingSkip, getBitmap, marks
 
 // Grease pencil: all marks go on one opaque layer that is laid over the sheet
 // semi-transparently, so overlapping strokes don't build up darker.
-let layer = null;
+// One layer per target canvas (screen, magnifier, export).
+const layers = new WeakMap();
 
 function drawMarks(ctx, sheet, marks) {
   const { width, height } = ctx.canvas;
-  if (!layer || layer.width !== width || layer.height !== height) layer = new OffscreenCanvas(width, height);
+  let layer = layers.get(ctx.canvas);
+  if (!layer || layer.width !== width || layer.height !== height) layers.set(ctx.canvas, layer = new OffscreenCanvas(width, height));
   const g = layer.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.clearRect(0, 0, width, height);
