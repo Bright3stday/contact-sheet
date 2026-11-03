@@ -71,7 +71,8 @@ $('export').addEventListener('click', async () => {
       layouts,
       picks: state.frames.filter(f => marks.picks.has(f.key)),
       folder: folderMode ? state.dir : null,
-      baseName: 'contact-' + ((state.frames[0]?.time || '').slice(0, 10).replace(/:/g, '-') || 'sheet'),
+      // shoot date + export time, so each export sits beside the earlier ones in time order
+      baseName: 'contact-' + ((state.frames[0]?.time || '').slice(0, 10).replace(/:/g, '-') || 'sheet') + '_exported-' + exportStamp(),
       progress: (text, fraction) => {
         if (text) status(text);
         $('progress').hidden = fraction == null;
@@ -87,6 +88,12 @@ $('export').addEventListener('click', async () => {
     updateStatus();
   }
 });
+
+// Local time as 2026-11-03-154210: sorts by name, safe in filenames.
+function exportStamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
 
 initMarks({
   canvas,

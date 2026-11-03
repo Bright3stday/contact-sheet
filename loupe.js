@@ -4,7 +4,9 @@ import { getBitmap, orient } from './sheet.js';
 import { marks } from './marks.js';
 import { shareFile } from './export.js';
 
-const filesMode = !('showDirectoryPicker' in window);
+// Touch devices with Web Share (the tablet). Not tied to folder/files mode: Android Chrome
+// now has folder access too.
+const canShare = navigator.maxTouchPoints > 0 && 'canShare' in navigator;
 
 const $ = id => document.getElementById(id);
 const root = $('loupe');
@@ -47,7 +49,7 @@ async function go(i) {
   $('loupe-prev').disabled = i === 0;
   $('loupe-next').disabled = i === cells.length - 1;
   // tablet: picked frames can go straight to Snapseed or social apps
-  const sharable = filesMode && marks.picks.has(frame.key);
+  const sharable = canShare && marks.picks.has(frame.key);
   $('loupe-share').hidden = !(sharable && frame.jpg);
   $('loupe-share-raw').hidden = !(sharable && frame.raw);
 

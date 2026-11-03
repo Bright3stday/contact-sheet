@@ -1,4 +1,4 @@
-// Exports: annotated sheets (one JPEG each + one PDF), picks.txt, the Picks folder copy (PC)
+// Exports: annotated sheets (one JPEG each + one PDF), a picks list, the Picks folder copy
 // and sharing a picked frame (tablet).
 import { SHEET_W, SHEET_H, drawSheet, getBitmap, decodeThumb } from './sheet.js';
 
@@ -22,7 +22,7 @@ export async function exportAll({ layouts, picks, folder, baseName, progress }) 
     if (r.missing.length) lines.push(`Not found in this folder: ${r.missing.join(', ')}`);
   }
 
-  await save('picks.txt', new Blob([picksText(picks)], { type: 'text/plain' }));
+  await save(`${baseName}-picks.txt`, new Blob([picksText(picks)], { type: 'text/plain' }));
 
   const { jsPDF } = await loadJsPdf();
   const total = layouts.reduce((n, l) => n + l.sheets.length, 0);
@@ -42,7 +42,7 @@ export async function exportAll({ layouts, picks, folder, baseName, progress }) 
   }
   progress?.('', null);
 
-  lines.push(`Saved picks.txt. Everything is ${out ? 'in Picks' : 'in Downloads'}.`);
+  lines.push(`Saved ${baseName}-picks.txt. Everything is ${out ? 'in Picks' : 'in Downloads'}.`);
   return lines.join('\n');
 }
 
