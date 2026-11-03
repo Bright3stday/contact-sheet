@@ -8,9 +8,14 @@ const SCAN_PARALLEL = 4;
 const JPEG_EXT = ['jpg', 'jpeg'];
 const RAW_EXT = ['arw', 'raf'];
 
-// Basename, case-insensitive, without a trailing _<digits> (Creators' App adds "_1").
+// Basename, case-insensitive, without a short copy suffix (Creators' App adds "_1").
+// Only 1-3 digits: longer ones are part of the name itself (IMG_1234, 20261101_183015).
 export function frameKey(name) {
-  return name.replace(/\.[^.]+$/, '').toLowerCase().replace(/_\d+$/, '');
+  return baseName(name).replace(/_\d{1,3}$/, '');
+}
+
+function baseName(name) {
+  return name.replace(/\.[^.]+$/, '').toLowerCase();
 }
 
 function ext(name) {
@@ -36,14 +41,20 @@ function isImage(name) {
   return JPEG_EXT.includes(ext(name)) || RAW_EXT.includes(ext(name));
 }
 
-// JPEG and RAW sharing a key form one frame.
+// A JPEG and a RAW sharing a key form one frame. Two files of the same kind are never merged:
+// the second keeps its own full name as its key and becomes a frame of its own. Names without
+// a copy suffix go first, so DSC04919.JPG keeps the key and DSC04919_1.JPG stands apart.
 function groupFiles(files) {
   const groups = new Map();
-  for (const f of files) {
-    if (!isImage(f.name)) continue;
-    const key = frameKey(f.name);
+  const images = files.filter(f => isImage(f.name));
+  const sorted = [...images.filter(f => frameKey(f.name) === baseName(f.name)),
+                  ...images.filter(f => frameKey(f.name) !== baseName(f.name))];
+  for (const f of sorted) {
+    const slot = JPEG_EXT.includes(ext(f.name)) ? 'jpg' : 'raw';
+    const key = [frameKey(f.name), baseName(f.name), f.name.toLowerCase()]
+      .find(k => !groups.get(k)?.[slot]) ?? `${f.name.toLowerCase()}#${groups.size}`;
     if (!groups.has(key)) groups.set(key, { key, jpg: null, raw: null });
-    groups.get(key)[JPEG_EXT.includes(ext(f.name)) ? 'jpg' : 'raw'] = f;
+    groups.get(key)[slot] = f;
   }
   return [...groups.values()];
 }

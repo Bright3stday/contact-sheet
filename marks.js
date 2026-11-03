@@ -282,19 +282,24 @@ function hoverCursor(canvas, e, p, r) {
 }
 
 // Single tap picks after a short wait; a second tap on the same frame opens the loupe instead.
+// A tap on another frame first commits the waiting pick, so fast picking loses nothing.
 function tap([x, y]) {
   const cur = app.current();
   const i = cellAt(x, y);
-  if (i < 0 || i >= cur.cells.length) return;
   if (pendingTap && pendingTap.cell === i) {
     clearTimeout(pendingTap.timer);
     pendingTap = null;
     app.openLoupe(i);
     return;
   }
-  if (pendingTap) clearTimeout(pendingTap.timer);
+  if (pendingTap) {
+    clearTimeout(pendingTap.timer);
+    pendingTap.commit();
+  }
+  if (i < 0 || i >= cur.cells.length) return;
   const frame = cur.cells[i].frame;
-  pendingTap = { cell: i, timer: setTimeout(() => { pendingTap = null; togglePick(frame); }, DOUBLE_MS) };
+  const commit = () => { pendingTap = null; togglePick(frame); };
+  pendingTap = { cell: i, commit, timer: setTimeout(commit, DOUBLE_MS) };
 }
 
 function pressure(e) {

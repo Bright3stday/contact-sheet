@@ -17,6 +17,8 @@ export async function exportAll({ layouts, picks, folder, baseName, progress }) 
     const r = await copyPicks(picks, out, progress);
     lines.push(`Copied ${r.copied.length} files to Picks.`);
     if (r.skipped.length) lines.push(`Already in Picks, left as is: ${r.skipped.join(', ')}`);
+    if (r.clashes.length) lines.push(`A different file with this name is already in Picks, not copied: ${r.clashes.join(', ')}`);
+    if (r.failed.length) lines.push(`COPY FAILED, nothing left behind: ${r.failed.join(', ')}`);
     if (r.missing.length) lines.push(`Not found in this folder: ${r.missing.join(', ')}`);
   }
 
@@ -64,16 +66,20 @@ function picksText(picks) {
   return names.join('\r\n') + '\r\n';
 }
 
-// Copies picked JPEGs and RAWs into Picks. Never overwrites: existing files are skipped.
+// Copies picked JPEGs and RAWs into Picks. Never overwrites a real file: a copy of the same
+// size counts as done, a different file of that name is left alone and reported. An empty file
+// (left by an earlier copy that was cut off) is copied over.
 // Progress follows bytes copied, since RAWs off a slow HDD take a while each.
 async function copyPicks(picks, out, progress) {
-  const copied = [], skipped = [], missing = [];
+  const copied = [], skipped = [], clashes = [], failed = [], missing = [];
   const todo = [];
   for (const f of picks) {
     if (!f.jpg && !f.raw) { missing.push(f.name); continue; }
     for (const file of [f.jpg, f.raw]) {
       if (!file) continue;
-      if (await exists(out, file.name)) skipped.push(file.name);
+      const size = await existingSize(out, file.name);
+      if (size === file.size && size > 0) skipped.push(file.name);
+      else if (size > 0) clashes.push(file.name);
       else todo.push(file);
     }
   }
@@ -81,31 +87,46 @@ async function copyPicks(picks, out, progress) {
   let bytes = 0;
   for (const [i, file] of todo.entries()) {
     const label = `Copying ${i + 1} / ${todo.length}: ${file.name}`;
-    await writeFile(out, file.name, file, n => progress?.(label, (bytes + n) / total));
-    bytes += file.size;
-    copied.push(file.name);
-  }
-  return { copied, skipped, missing };
-}
-
-async function exists(dir, name) {
-  try { await dir.getFileHandle(name); return true; } catch { return false; }
-}
-
-async function writeFile(dir, name, blob, onBytes) {
-  const handle = await dir.getFileHandle(name, { create: true });
-  const w = await handle.createWritable();
-  if (onBytes && blob.stream) {
-    const reader = blob.stream().getReader();
-    let n = 0;
-    for (let r = await reader.read(); !r.done; r = await reader.read()) {
-      await w.write(r.value);
-      onBytes(n += r.value.byteLength);
+    try {
+      await writeFile(out, file.name, file, n => progress?.(label, (bytes + n) / total));
+      copied.push(file.name);
+    } catch (e) {
+      failed.push(`${file.name} (${e.message})`);
     }
-  } else {
-    await w.write(blob);
+    bytes += file.size;
   }
-  await w.close();
+  return { copied, skipped, clashes, failed, missing };
+}
+
+// Size of the file of that name in dir, or null if there is none.
+async function existingSize(dir, name) {
+  try { return (await (await dir.getFileHandle(name)).getFile()).size; } catch { return null; }
+}
+
+// Writes through a temporary file that only replaces the target on close. If anything fails,
+// the write is aborted and a target this call created is removed, so no partial file is left.
+async function writeFile(dir, name, blob, onBytes) {
+  const created = await existingSize(dir, name) === null;
+  const handle = await dir.getFileHandle(name, { create: true });
+  let w;
+  try {
+    w = await handle.createWritable();
+    if (onBytes && blob.stream) {
+      const reader = blob.stream().getReader();
+      let n = 0;
+      for (let r = await reader.read(); !r.done; r = await reader.read()) {
+        await w.write(r.value);
+        onBytes(n += r.value.byteLength);
+      }
+    } else {
+      await w.write(blob);
+    }
+    await w.close();
+  } catch (e) {
+    try { await w?.abort(); } catch {}
+    if (created) { try { await dir.removeEntry(name); } catch {} }
+    throw e;
+  }
 }
 
 export function download(name, blob) {
