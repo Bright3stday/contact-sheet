@@ -61,16 +61,42 @@ button:disabled { color: var(--muted); }
 #status { color: var(--muted); }
 #progress { width: 160px; accent-color: #c33; }
 
+body.compact #toolbar .full { display: none; }
+
 #stage {
   flex: 1;
   min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
+  position: relative;
 }
 
-#sheet { display: block; touch-action: none; }
+#sheet {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  display: block;
+  touch-action: none;
+}
+
+#magnifier {
+  position: fixed;
+  pointer-events: none;
+  background: #000;
+  border: 1px solid #444;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+#magnifier[hidden] { display: none; }
+#magnifier-canvas { display: block; width: 100%; }
+
+#magnifier-label {
+  padding: 6px 10px;
+  background: #141414;
+  color: #d9b25f;
+  font: 15px "Courier New", monospace;
+  white-space: pre;
+}
 
 #loupe {
   position: fixed;

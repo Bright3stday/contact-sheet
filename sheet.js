@@ -182,7 +182,7 @@ let running = 0;
 let onReady = () => {};
 
 export function getBitmap(frame) {
-  return cache.get(frame) || null;
+  return sharp.get(frame)?.bm || cache.get(frame) || null;
 }
 
 // frames: in priority order (current sheet first). Everything else is released.
@@ -211,10 +211,50 @@ function pump() {
   }
 }
 
-// Downscaled decode at the export cell height. Chrome applies the JPEG's own EXIF orientation;
-// an embedded RAW preview without EXIF still needs turning, which shows as a landscape bitmap.
-export async function decodeThumb(frame) {
-  const bm = await createImageBitmap(frameBlob(frame, 'sheet'), { resizeHeight: CELL_H, resizeQuality: 'high' });
+// ---- Sharper decodes while zoomed in: only the frames in view, at about the size shown ----
+
+const SHARP_PARALLEL = 2;
+const SHARP_MAX_H = 1280;
+const sharp = new Map();   // frame -> { bm, h }
+let sharpH = 0;
+let sharpWanted = new Set();
+let sharpQueue = [];
+let sharpRunning = 0;
+let onSharp = () => {};
+
+// scale: canvas pixels per sheet unit. Near 1 the normal thumbnails are already sharp,
+// so nothing extra is kept. Heights go up in half-cell steps to avoid re-decoding on every pinch.
+export function keepSharp(frames, scale, ready) {
+  sharpH = scale > 1.15 ? Math.min(SHARP_MAX_H, Math.ceil(scale * 2) / 2 * CELL_H) : 0;
+  onSharp = ready;
+  sharpWanted = new Set(sharpH ? frames : []);
+  for (const [frame, e] of sharp) {
+    if (!sharpWanted.has(frame)) { e.bm.close(); sharp.delete(frame); }
+  }
+  sharpQueue = [...sharpWanted].filter(f => (f.jpg || f.raw) && !(sharp.get(f)?.h >= sharpH));
+  pumpSharp();
+}
+
+function pumpSharp() {
+  while (sharpRunning < SHARP_PARALLEL && sharpQueue.length) {
+    const frame = sharpQueue.shift(), h = sharpH;
+    sharpRunning++;
+    decodeThumb(frame, h)
+      .then(bm => {
+        const old = sharp.get(frame);
+        if (sharpWanted.has(frame) && !(old?.h >= h)) { old?.bm.close(); sharp.set(frame, { bm, h }); onSharp(frame); }
+        else bm.close();
+      })
+      .catch(e => console.warn('decode failed', frame.name, e))
+      .finally(() => { sharpRunning--; pumpSharp(); });
+  }
+}
+
+// Downscaled decode, by default at the export cell height. Chrome applies the JPEG's own EXIF
+// orientation; an embedded RAW preview without EXIF still needs turning, which shows as a
+// landscape bitmap.
+export async function decodeThumb(frame, height = CELL_H) {
+  const bm = await createImageBitmap(frameBlob(frame, 'sheet'), { resizeHeight: height, resizeQuality: 'high' });
   return orient(bm, frame.orientation);
 }
 

@@ -1,7 +1,8 @@
 ﻿// App state and UI wiring.
 import { filesFromFolder, filesFromInput, scanFrames } from './scan.js';
-import { SHEET_W, SHEET_H, PER_SHEET, buildSheets, drawSheet, getBitmap, keepBitmaps } from './sheet.js';
+import { SHEET_W, SHEET_H, PER_SHEET, buildSheets, cellAt, cellRect, drawSheet, getBitmap, keepBitmaps, keepSharp } from './sheet.js';
 import { openLoupe } from './loupe.js';
+import { showMagnifier, hideMagnifier } from './magnifier.js';
 import { marks, initMarks, sheetItems, applySession, resetMarks, findSavedSession, saveSession } from './marks.js';
 import { exportAll } from './export.js';
 
@@ -103,6 +104,10 @@ initMarks({
     });
   },
   session: () => ({ ratedOnly: state.ratedOnly, frames: state.frames }),
+  toSheet,
+  sheetPerCss: () => canvas.width / canvas.getBoundingClientRect().width / viewScale(),
+  zoomAt,
+  panBy,
   importSession: session => {
     if (!state.scanned.length) { alert('Open the folder or files first, then import the marks file.'); return; }
     const missing = useSession(session);
@@ -155,8 +160,12 @@ function layout(ratedOnly) {
 }
 
 function show(i) {
+  unhover();
   if (!state.sheets.length) { state.current = 0; render(); updateBar(); return; }
-  state.current = Math.max(0, Math.min(i, state.sheets.length - 1));
+  const next = Math.max(0, Math.min(i, state.sheets.length - 1));
+  if (next !== state.current) view.zoom = 1;   // a new sheet starts fitted
+  state.current = next;
+  viewChanged();
   const near = [state.current, state.current + 1, state.current - 1]
     .filter(n => n >= 0 && n < state.sheets.length)
     .flatMap(n => state.sheets[n].cells.map(c => c.frame));
@@ -198,9 +207,9 @@ function render() {
   const sheet = state.sheets[state.current];
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!sheet) return;
-  const s = canvas.width / SHEET_W;
-  ctx.setTransform(s, 0, 0, s, 0, 0);
+  if (!sheet || !canvas.width || !canvas.height) return;   // not laid out yet
+  const s = viewScale();
+  ctx.setTransform(s, 0, 0, s, canvas.width / 2 - view.cx * s, canvas.height / 2 - view.cy * s);
   const last = state.current === state.sheets.length - 1;
   const key = (state.ratedOnly ? 'r' : 'a') + state.current;
   drawSheet(ctx, sheet, state.sheets.length, last ? state.trailingSkip : 0, getBitmap,
@@ -208,20 +217,143 @@ function render() {
   updateStatus();
 }
 
+// The canvas fills the stage; the sheet is drawn into it through the view.
 function fitCanvas() {
-  const stage = $('stage');
-  const box = stage.getBoundingClientRect();
-  const pad = 16;
-  const scale = Math.min((box.width - pad) / SHEET_W, (box.height - pad) / SHEET_H);
-  const cssW = Math.floor(SHEET_W * scale), cssH = Math.floor(SHEET_H * scale);
-  canvas.style.width = cssW + 'px';
-  canvas.style.height = cssH + 'px';
-  canvas.width = Math.round(cssW * devicePixelRatio);
-  canvas.height = Math.round(cssH * devicePixelRatio);
+  const box = canvas.getBoundingClientRect();
+  canvas.width = Math.round(box.width * devicePixelRatio);
+  canvas.height = Math.round(box.height * devicePixelRatio);
+  viewChanged();
   render();
 }
 
 new ResizeObserver(fitCanvas).observe($('stage'));
+
+// ---- Sheet view: zoom 1 = whole sheet fitted; (cx, cy) = sheet point at the canvas centre ----
+
+const MAX_ZOOM = 4;
+const view = { zoom: 1, cx: SHEET_W / 2, cy: SHEET_H / 2 };
+
+// canvas pixels per sheet unit
+function viewScale() {
+  return Math.min(canvas.width / SHEET_W, canvas.height / SHEET_H) * view.zoom;
+}
+
+function toSheet(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  const s = viewScale();
+  return [
+    view.cx + ((clientX - r.left) * canvas.width / r.width - canvas.width / 2) / s,
+    view.cy + ((clientY - r.top) * canvas.height / r.height - canvas.height / 2) / s,
+  ];
+}
+
+// Zooms by factor, keeping the sheet point under (clientX, clientY) in place.
+function zoomAt(factor, clientX, clientY) {
+  const [x, y] = toSheet(clientX, clientY);
+  view.zoom = Math.max(1, Math.min(MAX_ZOOM, view.zoom * factor));
+  const [x2, y2] = toSheet(clientX, clientY);
+  view.cx += x - x2;
+  view.cy += y - y2;
+  viewChanged();
+}
+
+function panBy(dxCss, dyCss) {
+  const k = viewScale() * canvas.getBoundingClientRect().width / canvas.width;   // CSS px per sheet unit
+  view.cx -= dxCss / k;
+  view.cy -= dyCss / k;
+  viewChanged();
+}
+
+function viewChanged() {
+  // keep the sheet filling the view; centre it along an axis where it fits
+  const s = viewScale();
+  for (const [k, size, span] of [['cx', SHEET_W, canvas.width / s], ['cy', SHEET_H, canvas.height / s]]) {
+    view[k] = span >= size ? size / 2 : Math.max(span / 2, Math.min(size - span / 2, view[k]));
+  }
+  $('fit').disabled = view.zoom === 1;
+  scheduleRender();
+  scheduleSharp();
+}
+
+// After zooming settles, the frames in view get decoded at the size they are shown.
+let sharpTimer = 0;
+function scheduleSharp() {
+  clearTimeout(sharpTimer);
+  sharpTimer = setTimeout(() => {
+    const sheet = state.sheets[state.current];
+    const s = viewScale();
+    const left = view.cx - canvas.width / 2 / s, right = view.cx + canvas.width / 2 / s;
+    const top = view.cy - canvas.height / 2 / s, bottom = view.cy + canvas.height / 2 / s;
+    const frames = (sheet?.cells || []).filter((c, i) => {
+      const r = cellRect(i);
+      return r.x < right && r.x + r.w > left && r.y < bottom && r.y + r.h > top;
+    }).map(c => c.frame);
+    keepSharp(frames, s, frame => {
+      if (state.sheets[state.current]?.cells.some(c => c.frame === frame)) scheduleRender();
+    });
+  }, 250);
+}
+
+$('fit').addEventListener('click', () => { view.zoom = 1; viewChanged(); });
+
+// PC: the wheel (or a trackpad pinch) zooms at the pointer.
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  unhover();
+  zoomAt(Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+}, { passive: false });
+
+// ---- Magnifier: hold the S Pen (or mouse) over a frame to see it larger beside the sheet ----
+
+const HOVER_MS = 250;
+let magnifierOn = true;
+try { magnifierOn = localStorage.getItem('magnifier') !== 'off'; } catch {}
+let hoverCell = -1;
+let hoverTimer = 0;
+
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch') return;
+  if (e.buttons || !magnifierOn) { unhover(); return; }
+  const sheet = state.sheets[state.current];
+  const i = sheet ? cellAt(...toSheet(e.clientX, e.clientY)) : -1;
+  const cell = sheet?.cells[i];
+  if ((cell ? i : -1) === hoverCell) return;
+  hoverCell = cell ? i : -1;
+  clearTimeout(hoverTimer);
+  if (!cell) { hoverTimer = setTimeout(hideMagnifier, 200); return; }
+  const open = () => showMagnifier(cell, $('stage').getBoundingClientRect(), e.clientX);
+  // once it is open, moving to the next frame switches at once
+  if ($('magnifier').hidden) hoverTimer = setTimeout(open, HOVER_MS);
+  else open();
+});
+canvas.addEventListener('pointerdown', unhover);
+canvas.addEventListener('pointerleave', unhover);
+
+function unhover() {
+  clearTimeout(hoverTimer);
+  hoverCell = -1;
+  hideMagnifier();
+}
+
+function setMagnifier(on) {
+  magnifierOn = on;
+  $('magnify').setAttribute('aria-pressed', on);
+  if (!on) unhover();
+  try { localStorage.setItem('magnifier', on ? 'on' : 'off'); } catch {}
+}
+$('magnify').addEventListener('click', () => setMagnifier(!magnifierOn));
+setMagnifier(magnifierOn);
+
+// ---- Compact toolbar: keeps only drawing tools and paging, for a bigger sheet ----
+
+function setCompact(on) {
+  document.body.classList.toggle('compact', on);
+  $('compact').textContent = on ? '▾' : '▴';
+  $('compact').title = on ? 'Show all buttons' : 'Fewer buttons';
+  try { localStorage.setItem('compact', on ? 'on' : 'off'); } catch {}
+}
+$('compact').addEventListener('click', () => setCompact(!document.body.classList.contains('compact')));
+try { setCompact(localStorage.getItem('compact') === 'on'); } catch { setCompact(false); }
 status(folderMode ? 'Open a shoot folder' : 'Open photos');
 
 // Offline install only from the HTTPS host; the local dev server always serves fresh files.

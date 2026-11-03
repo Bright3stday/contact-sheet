@@ -1,6 +1,6 @@
 // Offline: the app's own files are cached at install and always served from the cache.
 // Bump VERSION on every deploy so installed copies pick up the new files.
-const VERSION = 'contact-sheet-v1';
+const VERSION = 'contact-sheet-v2';
 const FILES = [
   './',
   'index.html',
@@ -9,6 +9,7 @@ const FILES = [
   'scan.js',
   'sheet.js',
   'loupe.js',
+  'magnifier.js',
   'marks.js',
   'export.js',
   'manifest.json',

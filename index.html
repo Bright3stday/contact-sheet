@@ -11,10 +11,10 @@
 </head>
 <body>
   <header id="toolbar">
-    <button id="open">Open</button>
+    <button id="open" class="full">Open</button>
     <!-- no accept filter: an image-only accept makes Android use its photo picker, which renames files -->
     <input id="files" type="file" multiple hidden>
-    <button id="filter" disabled>Rated only</button>
+    <button id="filter" class="full" disabled>Rated only</button>
     <span class="group">
       <button class="tool" data-tool="select" aria-pressed="true">Select</button>
       <button class="tool" data-tool="pen" aria-pressed="false">Pen</button>
@@ -22,22 +22,29 @@
       <button class="tool" data-tool="eraser" aria-pressed="false">Eraser</button>
     </span>
     <button id="undo">Undo</button>
-    <button id="clear">Clear</button>
+    <button id="clear" class="full">Clear</button>
     <span class="spacer"></span>
     <button id="prev" disabled>&lsaquo;</button>
     <span id="page">–</span>
     <button id="next" disabled>&rsaquo;</button>
+    <button id="fit" disabled>Fit</button>
     <span class="spacer"></span>
-    <button id="export">Export</button>
-    <button id="marks-export">Export marks</button>
-    <button id="marks-import">Import marks</button>
+    <button id="magnify" class="full" aria-pressed="true">Magnifier</button>
+    <button id="export" class="full">Export</button>
+    <button id="marks-export" class="full">Export marks</button>
+    <button id="marks-import" class="full">Import marks</button>
     <input id="marks-file" type="file" accept=".json,application/json" hidden>
     <progress id="progress" max="1" hidden></progress>
-    <span id="status"></span>
+    <span id="status" class="full"></span>
+    <button id="compact" title="Fewer buttons">▴</button>
   </header>
   <main id="stage">
     <canvas id="sheet"></canvas>
   </main>
+  <div id="magnifier" hidden>
+    <canvas id="magnifier-canvas"></canvas>
+    <div id="magnifier-label"></div>
+  </div>
   <div id="loupe" hidden>
     <header class="bar">
       <button id="loupe-close">Close</button>

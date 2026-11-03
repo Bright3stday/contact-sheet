@@ -1,5 +1,5 @@
 // Marking on the sheet (picks, pen, box), undo/clear, autosave in IndexedDB, and the marks file.
-import { SHEET_W, SHEET_H, cellAt } from './sheet.js';
+import { cellAt } from './sheet.js';
 
 // picks: frame keys. items: per sheet layout ("r0" = rated-only sheet 1, "a2" = all-frames
 // sheet 3) a list of { type: 'pen', points: [[x, y, pressure]] } or { type: 'box', x, y, w, h }.
@@ -12,7 +12,9 @@ let app;                 // hooks from app.js
 const $ = id => document.getElementById(id);
 
 // hooks: canvas, current() -> { key, cells }, render(), openLoupe(cellIndex),
-//        session() -> { ratedOnly, frames }, importSession(session)
+//        session() -> { ratedOnly, frames }, importSession(session),
+//        toSheet(clientX, clientY) -> [x, y], sheetPerCss() -> sheet units per CSS px,
+//        zoomAt(factor, clientX, clientY), panBy(dxCss, dyCss)
 export function initMarks(hooks) {
   app = hooks;
   for (const b of document.querySelectorAll('.tool')) {
@@ -80,6 +82,8 @@ function togglePick(frame) {
 // Pen and mouse draw with the Pen/Box tool and erase with the Eraser. Fingers never draw:
 // they tap (pick) and double-tap (loupe). A tap with the S Pen or mouse also picks, except
 // with the Eraser. With the Box tool, dragging a box's edge moves it and a corner resizes it.
+// Two fingers pinch-zoom the sheet; a drag that isn't drawing (a finger, or the Select tool)
+// pans it while zoomed.
 
 const TAP_MOVE = 10;     // CSS px of movement that turns a tap into a drag
 const HIT_PX = 12;       // CSS px reach for grabbing a box edge/corner or erasing
@@ -89,24 +93,35 @@ const ERASER_BUTTON = 5; // pen eraser end, if the pen has one
 let lastPen = -Infinity;
 let active = null;
 let pendingTap = null;
+const touches = new Map();   // finger pointerId -> [clientX, clientY]
+let pinch = null;            // { x, y, d } midpoint and spread of the two fingers
 
 function attachInput(canvas) {
-  const toSheet = e => {
-    const r = canvas.getBoundingClientRect();
-    return [round((e.clientX - r.left) / r.width * SHEET_W), round((e.clientY - r.top) / r.height * SHEET_H)];
-  };
-  const reach = () => HIT_PX * SHEET_W / canvas.getBoundingClientRect().width;
+  const toSheet = e => app.toSheet(e.clientX, e.clientY).map(v => round(v));
+  const reach = () => HIT_PX * app.sheetPerCss();
 
   canvas.addEventListener('pointerdown', e => {
     if (e.pointerType === 'pen') lastPen = e.timeStamp;
     if (e.pointerType === 'touch' && e.timeStamp - lastPen < PALM_MS) return;
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, [e.clientX, e.clientY]);
+      if (touches.size === 2) {
+        // a second finger turns the first finger's tap into a pinch
+        canvas.setPointerCapture(e.pointerId);
+        if (active?.mode === 'tap') active = null;
+        pinch = pinchState();
+        return;
+      }
+      if (touches.size > 2) return;
+    }
     if (active || (e.button > 0 && e.button !== ERASER_BUTTON) || !app.current()) return;
     canvas.setPointerCapture(e.pointerId);
     const p = toSheet(e);
     const list = sheetItems(app.current().key);
     let mode = e.pointerType !== 'touch' && tool !== 'select' ? tool : 'tap';
     if (e.button === ERASER_BUTTON) mode = 'eraser';
-    active = { id: e.pointerId, mode, x0: e.clientX, y0: e.clientY, p0: p, moved: false, item: null, list };
+    active = { id: e.pointerId, mode, x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY,
+      p0: p, moved: false, item: null, list };
 
     if (mode === 'pen') {
       active.item = { type: 'pen', points: [[...p, pressure(e)]] };
@@ -126,9 +141,23 @@ function attachInput(canvas) {
 
   canvas.addEventListener('pointermove', e => {
     if (e.pointerType === 'pen') lastPen = e.timeStamp;
+    if (pinch && touches.has(e.pointerId)) {
+      touches.set(e.pointerId, [e.clientX, e.clientY]);
+      const now = pinchState();
+      app.panBy(now.x - pinch.x, now.y - pinch.y);
+      app.zoomAt(now.d / pinch.d, now.x, now.y);
+      pinch = now;
+      return;
+    }
     if (!active) { hoverCursor(canvas, e, toSheet(e), reach()); return; }
     if (e.pointerId !== active.id) return;
     if (Math.hypot(e.clientX - active.x0, e.clientY - active.y0) > TAP_MOVE) active.moved = true;
+    if (active.mode === 'tap') {
+      if (active.moved) app.panBy(e.clientX - active.lx, e.clientY - active.ly);
+      active.lx = e.clientX;
+      active.ly = e.clientY;
+      return;
+    }
     const [x, y] = toSheet(e);
     const it = active.item;
     const coalesced = e.getCoalescedEvents?.();
@@ -152,7 +181,13 @@ function attachInput(canvas) {
     app.render();
   });
 
+  const endTouch = e => {
+    touches.delete(e.pointerId);
+    if (touches.size < 2) pinch = null;
+  };
+
   canvas.addEventListener('pointerup', e => {
+    endTouch(e);
     if (!active || e.pointerId !== active.id) return;
     const a = active;
     active = null;
@@ -182,6 +217,7 @@ function attachInput(canvas) {
   });
 
   canvas.addEventListener('pointercancel', e => {
+    endTouch(e);
     if (!active || e.pointerId !== active.id) return;
     const a = active;
     active = null;
@@ -190,6 +226,11 @@ function attachInput(canvas) {
     if (a.mode === 'eraser') a.list.splice(0, a.list.length, ...a.before);
     app.render();
   });
+}
+
+function pinchState() {
+  const [[x1, y1], [x2, y2]] = [...touches.values()];
+  return { x: (x1 + x2) / 2, y: (y1 + y2) / 2, d: Math.hypot(x2 - x1, y2 - y1) || 1 };
 }
 
 // The topmost box whose corner (resize) or edge (move) is within reach of p.
