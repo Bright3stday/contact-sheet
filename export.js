@@ -15,7 +15,8 @@ export async function exportAll({ layouts, picks, folder, baseName, progress }) 
 
   if (out) {
     const r = await copyPicks(picks, out, progress);
-    lines.push(`Copied ${r.copied.length} files to Picks.`);
+    lines.push(`Copied ${r.copied.length} JPEGs to Picks. RAWs stay in the shoot folder.`);
+    if (r.rawOnly.length) lines.push(`RAW only, listed in the picks file: ${r.rawOnly.join(', ')}`);
     if (r.skipped.length) lines.push(`Already in Picks, left as is: ${r.skipped.join(', ')}`);
     if (r.clashes.length) lines.push(`A different file with this name is already in Picks, not copied: ${r.clashes.join(', ')}`);
     if (r.failed.length) lines.push(`COPY FAILED, nothing left behind: ${r.failed.join(', ')}`);
@@ -66,22 +67,20 @@ function picksText(picks) {
   return names.join('\r\n') + '\r\n';
 }
 
-// Copies picked JPEGs and RAWs into Picks. Never overwrites a real file: a copy of the same
-// size counts as done, a different file of that name is left alone and reported. An empty file
-// (left by an earlier copy that was cut off) is copied over.
-// Progress follows bytes copied, since RAWs off a slow HDD take a while each.
+// Copies picked JPEGs into Picks. RAWs stay in the shoot folder only, so storage isn't doubled;
+// RAW-only picks are just listed. Never overwrites a real file: a copy of the same size counts
+// as done, a different file of that name is left alone and reported. An empty file (left by an
+// earlier copy that was cut off) is copied over. Progress follows bytes copied.
 async function copyPicks(picks, out, progress) {
-  const copied = [], skipped = [], clashes = [], failed = [], missing = [];
+  const copied = [], skipped = [], clashes = [], failed = [], missing = [], rawOnly = [];
   const todo = [];
   for (const f of picks) {
     if (!f.jpg && !f.raw) { missing.push(f.name); continue; }
-    for (const file of [f.jpg, f.raw]) {
-      if (!file) continue;
-      const size = await existingSize(out, file.name);
-      if (size === file.size && size > 0) skipped.push(file.name);
-      else if (size > 0) clashes.push(file.name);
-      else todo.push(file);
-    }
+    if (!f.jpg) { rawOnly.push(f.raw.name); continue; }
+    const size = await existingSize(out, f.jpg.name);
+    if (size === f.jpg.size && size > 0) skipped.push(f.jpg.name);
+    else if (size > 0) clashes.push(f.jpg.name);
+    else todo.push(f.jpg);
   }
   const total = todo.reduce((n, f) => n + f.size, 0) || 1;
   let bytes = 0;
@@ -95,7 +94,7 @@ async function copyPicks(picks, out, progress) {
     }
     bytes += file.size;
   }
-  return { copied, skipped, clashes, failed, missing };
+  return { copied, skipped, clashes, failed, missing, rawOnly };
 }
 
 // Size of the file of that name in dir, or null if there is none.
