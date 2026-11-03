@@ -15,22 +15,27 @@ const state = {
   sheets: [],
   trailingSkip: 0,  // hidden frames after the last visible one
   current: 0,
-  dir: null,        // folder mode: the opened shoot folder (exports go into its Picks subfolder)
+  dir: null,        // the opened shoot folder (exports go into its Picks subfolder); null for photos
 };
 
 const $ = id => document.getElementById(id);
 const canvas = $('sheet');
 const ctx = canvas.getContext('2d');
 
+// Open folder: a shoot folder (SD card, HDD). Open photos: a selection, e.g. one shoot out of
+// DCIM, where a Picks folder would only duplicate files; its exports go to Downloads.
+$('open').hidden = !folderMode;
 $('open').addEventListener('click', async () => {
-  if (!folderMode) { $('files').click(); return; }
   let dir;
   try { dir = await window.showDirectoryPicker({ mode: 'readwrite' }); } catch { return; }
   state.dir = dir;
   load(await filesFromFolder(dir));
 });
 
+$('open-files').addEventListener('click', () => $('files').click());
+
 $('files').addEventListener('change', e => {
+  state.dir = null;
   load(filesFromInput(e.target.files));
   e.target.value = '';
 });
@@ -70,7 +75,7 @@ $('export').addEventListener('click', async () => {
     const summary = await exportAll({
       layouts,
       picks: state.frames.filter(f => marks.picks.has(f.key)),
-      folder: folderMode ? state.dir : null,
+      folder: state.dir,
       // shoot date + export time, so each export sits beside the earlier ones in time order
       baseName: 'contact-' + ((state.frames[0]?.time || '').slice(0, 10).replace(/:/g, '-') || 'sheet') + '_exported-' + exportStamp(),
       progress: (text, fraction) => {
@@ -407,7 +412,7 @@ try {
   }
 } catch {}
 
-status(folderMode ? 'Open a shoot folder' : 'Open photos');
+status(folderMode ? 'Open a shoot folder or photos' : 'Open photos');
 
 // Offline install only from the HTTPS host; the local dev server always serves fresh files.
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

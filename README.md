@@ -13,13 +13,15 @@ moves, renames or deletes them.
 
 ## What it does
 
-- Opens a shoot folder (or a selection of photos) and lays it out as contact sheets, sorted by
+- Opens a shoot folder, or a selection of photos (for example one shoot out of a phone's or
+  tablet's camera folder), and lays it out as contact sheets, sorted by
   capture time, with frame number, filename and time under each frame.
 - Shows only in-camera rated frames, or all of them.
 - Tap to pick, draw with a pen or stylus (pressure sensitive), draw boxes, erase, undo.
 - Zoom into a sheet, magnify a frame by holding the pen over it, and check focus in a loupe at 100%.
-- Exports annotated sheets as JPEGs and a PDF, a list of picks, and a copy of the picked JPEGs
-  into a `Picks` folder. Each export is dated, so earlier ones are kept.
+- Exports annotated sheets as JPEGs and a PDF, and a list of picks. For an opened folder they go
+  into a `Picks` folder with a copy of the picked JPEGs; for selected photos, into Downloads.
+  Each export is dated, so earlier ones are kept.
 - Moves a cull between devices with a small marks file.
 
 Tap **?** in the app for the full guide.

@@ -11,7 +11,8 @@
 </head>
 <body>
   <header id="toolbar">
-    <button id="open" class="full">Open</button>
+    <button id="open" class="full">Open folder</button>
+    <button id="open-files" class="full">Open photos</button>
     <!-- no accept filter: an image-only accept makes Android use its photo picker, which renames files -->
     <input id="files" type="file" multiple hidden>
     <button id="filter" class="full" disabled>Rated only</button>
@@ -70,9 +71,11 @@
         nothing is uploaded, and after the first visit the app works offline.</p>
 
       <h2>Open</h2>
-      <p><b>Open</b> a shoot folder, or select photos. JPEGs, Sony ARW and Fujifilm RAF are read.
-        A RAW and a JPEG with the same name are one frame. Frames are sorted by capture time.
-        Use Chrome or Edge.</p>
+      <p><b>Open folder</b> for a folder that holds one shoot, such as on an SD card or a hard drive.
+        <b>Open photos</b> to select just one shoot's files from a folder that holds more, such as the
+        tablet's camera folder: in the Android file picker, long-press the first file, then tap the others.
+        JPEGs, Sony ARW and Fujifilm RAF are read. A RAW and a JPEG with the same name are one frame.
+        Frames are sorted by capture time. Use Chrome or Edge.</p>
 
       <h2>Rated only / All</h2>
       <p>Shows only frames rated in camera, or every frame. It starts on rated frames when there are any.</p>
@@ -105,9 +108,9 @@
       <ul>
         <li><b>Export</b> saves each sheet as a JPEG plus one PDF, and a list of your picks.
           File names carry the export date and time, so earlier exports are kept.</li>
-        <li>With a folder open, these go into a <b>Picks</b> folder inside it, and the picked JPEGs
+        <li>After <b>Open folder</b>, these go into a <b>Picks</b> folder inside it, and the picked JPEGs
           are copied there too. RAWs are not copied; they stay where they are.
-          Without folder access, everything goes to Downloads.</li>
+          After <b>Open photos</b>, everything goes to Downloads and no photos are copied.</li>
         <li>On a tablet, a picked frame can be shared from the loupe, for example to an editing app.</li>
       </ul>
 
