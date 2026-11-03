@@ -36,6 +36,7 @@
     <input id="marks-file" type="file" accept=".json,application/json" hidden>
     <progress id="progress" max="1" hidden></progress>
     <span id="status" class="full"></span>
+    <button id="help-open" title="How to use">?</button>
     <button id="compact" title="Fewer buttons">▴</button>
   </header>
   <main id="stage">
@@ -59,6 +60,66 @@
     </header>
     <canvas id="loupe-canvas"></canvas>
   </div>
+  <dialog id="help">
+    <header class="bar">
+      <strong>Contact Sheet</strong>
+      <span class="spacer"></span>
+      <button id="help-close">Close</button>
+    </header>
+    <div class="help-body">
+      <p>Cull a shoot on 6×6 contact sheets with a red grease pencil. Everything stays on this device:
+        nothing is uploaded, and after the first visit the app works offline.</p>
+
+      <h2>Open</h2>
+      <p><b>Open</b> a shoot folder, or select photos. JPEGs, Sony ARW and Fujifilm RAF are read.
+        A RAW and a JPEG with the same name are one frame. Frames are sorted by capture time.
+        Use Chrome or Edge.</p>
+
+      <h2>Rated only / All</h2>
+      <p>Shows only frames rated in camera, or every frame. It starts on rated frames when there are any.</p>
+
+      <h2>Pick and mark</h2>
+      <ul>
+        <li><b>Tap</b> a frame to pick it (it gets a red outline). Tap again to unpick. With a finger this always works;
+          with a pen or mouse, choose <b>Select</b> first.</li>
+        <li><b>Double-tap</b> a frame to open it large in the loupe.</li>
+        <li><b>Pen</b> draws, pressure sensitive. <b>Box</b> drags a box; drag its edge to move it or a corner to resize it.
+          <b>Eraser</b>, or the pen's eraser button, removes a whole mark.</li>
+        <li>Fingers never draw, so a resting palm is ignored.</li>
+        <li><b>Undo</b> takes back the last change on this sheet. <b>Clear</b> removes its drawings; picks stay.</li>
+        <li>Marks save by themselves. Opening the same photos again brings them back.</li>
+      </ul>
+
+      <h2>Zoom and magnify</h2>
+      <ul>
+        <li><b>Pinch</b> with two fingers or turn the mouse wheel to zoom the sheet; drag to move around.
+          <b>Fit</b> shows the whole sheet again.</li>
+        <li><b>Magnifier</b>: hold the pen (or mouse) still over a frame for a moment to see it larger.
+          Moving on closes it. The button turns it off.</li>
+        <li>In the loupe: double-tap or <b>100%</b> to check focus, drag to pan, ‹ › for the next frame.
+          RAW-only frames show the preview stored in the RAW, which on some cameras is only 1616 px wide.</li>
+        <li><b>▴</b> hides most buttons for a bigger sheet.</li>
+      </ul>
+
+      <h2>Export</h2>
+      <ul>
+        <li><b>Export</b> saves each sheet as a JPEG plus one PDF, and a list of your picks.
+          File names carry the export date and time, so earlier exports are kept.</li>
+        <li>With a folder open, these go into a <b>Picks</b> folder inside it, and the picked JPEGs
+          are copied there too. RAWs are not copied; they stay where they are.
+          Without folder access, everything goes to Downloads.</li>
+        <li>On a tablet, a picked frame can be shared from the loupe, for example to an editing app.</li>
+      </ul>
+
+      <h2>Move a cull to another device</h2>
+      <p><b>Export marks</b> saves your picks and drawings as a small file. On the other device, open the
+        same photos, then <b>Import marks</b>.</p>
+
+      <h2>What it never does</h2>
+      <p>It never changes, moves, renames or deletes your photos; it only reads them and adds files to
+        Picks. It doesn't develop RAWs, and other camera RAW formats are not read.</p>
+    </div>
+  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>

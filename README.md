@@ -1,0 +1,43 @@
+# Contact Sheet
+
+Cull a photo shoot on 6×6 digital contact sheets, marking picks with a red grease pencil, the
+way you would with a loupe and a printed sheet.
+
+**Open it:** https://bright3stday.github.io/contact-sheet/
+
+## Private and offline
+
+Your photos never leave your device. Nothing is uploaded and there are no analytics. After the
+first visit the app works without a connection. It only reads your photos: it never changes,
+moves, renames or deletes them.
+
+## What it does
+
+- Opens a shoot folder (or a selection of photos) and lays it out as contact sheets, sorted by
+  capture time, with frame number, filename and time under each frame.
+- Shows only in-camera rated frames, or all of them.
+- Tap to pick, draw with a pen or stylus (pressure sensitive), draw boxes, erase, undo.
+- Zoom into a sheet, magnify a frame by holding the pen over it, and check focus in a loupe at 100%.
+- Exports annotated sheets as JPEGs and a PDF, a list of picks, and a copy of the picked JPEGs
+  into a `Picks` folder. Each export is dated, so earlier ones are kept.
+- Moves a cull between devices with a small marks file.
+
+Tap **?** in the app for the full guide.
+
+## Requirements
+
+- Chrome or Edge, on a PC or an Android tablet. Opening whole folders needs a recent version.
+- Photos: JPEG, Sony ARW and Fujifilm RAF. Tested with a Sony a7V, Sony RX100 VII and
+  Fujifilm X-T2. RAWs are not developed: the app shows the JPEG preview stored inside the RAW,
+  which on some cameras is only 1616 px wide. Other RAW formats are not read.
+- A stylus is best for drawing. Fingers pick, zoom and pan; a mouse works too.
+
+## Install
+
+Open the link in Chrome or Edge and choose **Install app** (PC) or **Add to Home screen** (Android).
+
+## Running it yourself
+
+Plain HTML, CSS and JavaScript modules, no build step. Serve the folder over HTTP(S) with any
+static file server. Libraries used, included in `vendor/`:
+[exifr](https://github.com/MikeKovarik/exifr) and [jsPDF](https://github.com/parallax/jsPDF).

@@ -312,33 +312,38 @@ canvas.addEventListener('wheel', e => {
 
 // ---- Magnifier: hold the S Pen (or mouse) over a frame to see it larger beside the sheet ----
 
-const HOVER_MS = 250;
+// Only a pen held still opens it: a pen on its way to tap or draw keeps moving, and any
+// movement beyond STILL_PX closes it again.
+const HOVER_MS = 600;
+const STILL_PX = 8;
 let magnifierOn = true;
 try { magnifierOn = localStorage.getItem('magnifier') !== 'off'; } catch {}
-let hoverCell = -1;
+let hoverAt = null;   // where the pen came to rest, in client px
 let hoverTimer = 0;
+let quietCell = -1;   // the frame just tapped or drawn on stays quiet until the pen leaves it
+
+const cellUnder = (x, y) => state.sheets[state.current] ? cellAt(...toSheet(x, y)) : -1;
 
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') return;
   if (e.buttons || !magnifierOn) { unhover(); return; }
-  const sheet = state.sheets[state.current];
-  const i = sheet ? cellAt(...toSheet(e.clientX, e.clientY)) : -1;
-  const cell = sheet?.cells[i];
-  if ((cell ? i : -1) === hoverCell) return;
-  hoverCell = cell ? i : -1;
-  clearTimeout(hoverTimer);
-  if (!cell) { hoverTimer = setTimeout(hideMagnifier, 200); return; }
-  const open = () => showMagnifier(cell, $('stage').getBoundingClientRect(), e.clientX);
-  // once it is open, moving to the next frame switches at once
-  if ($('magnifier').hidden) hoverTimer = setTimeout(open, HOVER_MS);
-  else open();
+  if (hoverAt && Math.hypot(e.clientX - hoverAt.x, e.clientY - hoverAt.y) <= STILL_PX) return;
+  unhover();
+  const at = hoverAt = { x: e.clientX, y: e.clientY };
+  const i = cellUnder(at.x, at.y);
+  if (i !== quietCell) quietCell = -1;
+  else return;
+  hoverTimer = setTimeout(() => {
+    const cell = state.sheets[state.current]?.cells[i];
+    if (cell) showMagnifier(cell, $('stage').getBoundingClientRect(), at.x);
+  }, HOVER_MS);
 });
-canvas.addEventListener('pointerdown', unhover);
-canvas.addEventListener('pointerleave', unhover);
+canvas.addEventListener('pointerdown', e => { unhover(); quietCell = cellUnder(e.clientX, e.clientY); });
+canvas.addEventListener('pointerleave', () => { unhover(); quietCell = -1; });
 
 function unhover() {
   clearTimeout(hoverTimer);
-  hoverCell = -1;
+  hoverAt = null;
   hideMagnifier();
 }
 
@@ -361,6 +366,18 @@ function setCompact(on) {
 }
 $('compact').addEventListener('click', () => setCompact(!document.body.classList.contains('compact')));
 try { setCompact(localStorage.getItem('compact') === 'on'); } catch { setCompact(false); }
+
+// ---- Help: opens by itself on the first visit ----
+
+$('help-open').addEventListener('click', () => $('help').showModal());
+$('help-close').addEventListener('click', () => $('help').close());
+try {
+  if (!localStorage.getItem('helpSeen')) {
+    $('help').showModal();
+    localStorage.setItem('helpSeen', '1');
+  }
+} catch {}
+
 status(folderMode ? 'Open a shoot folder' : 'Open photos');
 
 // Offline install only from the HTTPS host; the local dev server always serves fresh files.
