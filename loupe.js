@@ -1,6 +1,6 @@
 // Loupe: one frame large, fit or 100%, pan and pinch, step through the visible sequence.
 import { frameBlob } from './scan.js';
-import { getBitmap, orient } from './sheet.js';
+import { getBitmap, orient, formatDate } from './sheet.js';
 import { marks } from './marks.js';
 import { shareFile } from './export.js';
 
@@ -45,7 +45,8 @@ async function go(i) {
   if (i < 0 || i >= cells.length) return;
   index = i;
   const { frame, number } = cells[i];
-  $('loupe-label').textContent = `${number}  ${frame.name}  ${frame.time.slice(11, 19)}`;
+  const stars = frame.rating > 0 ? '  ' + '★'.repeat(Math.min(frame.rating, 5)) : '';
+  $('loupe-label').textContent = `${number}  ${frame.name}${stars}  ${formatDate(frame.time)} ${frame.time.slice(11, 19)}`;
   $('loupe-prev').disabled = i === 0;
   $('loupe-next').disabled = i === cells.length - 1;
   // tablet: picked frames can go straight to Snapseed or social apps

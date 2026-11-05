@@ -29,6 +29,7 @@ const MARK_ALPHA = 0.65;
 const PEN_W = 9;
 const BOX_W = 8;
 const PICK_W = 10;
+const RATED_CORNER = 44;
 const FONT = '"Courier New", monospace';
 
 // Image box of cell i (0..35) in sheet coordinates.
@@ -68,6 +69,11 @@ export function drawSheet(ctx, sheet, sheetCount, trailingSkip, getBitmap, marks
   ctx.font = `32px ${FONT}`;
   ctx.textAlign = 'left';
   ctx.fillText(`SHEET ${sheet.index + 1} / ${sheetCount}`, LEFT, 70);
+  const days = [...new Set(sheet.cells.map(c => formatDate(c.frame.time)).filter(Boolean))];
+  if (days.length) {
+    ctx.textAlign = 'center';
+    ctx.fillText(days.length === 1 ? days[0] : `${days[0]} – ${days[days.length - 1]}`, SHEET_W / 2, 70);
+  }
   if (sheet.cells.length) {
     const first = sheet.cells[0].number, last = sheet.cells[sheet.cells.length - 1].number;
     ctx.textAlign = 'right';
@@ -77,6 +83,7 @@ export function drawSheet(ctx, sheet, sheetCount, trailingSkip, getBitmap, marks
   sheet.cells.forEach((cell, i) => {
     const r = cellRect(i);
     drawFrame(ctx, r, getBitmap(cell.frame));
+    if (cell.frame.rating > 0) drawRated(ctx, r);
     drawLabel(ctx, r, cell);
     if (cell.skippedBefore) drawSkip(ctx, r.x - GAP_X / 2, r.y, cell.skippedBefore);
   });
@@ -156,6 +163,30 @@ function drawLabel(ctx, r, cell) {
   ctx.fillText(cell.frame.name, r.x + 70, y, r.w - 190);
   ctx.textAlign = 'right';
   ctx.fillText(cell.frame.time.slice(11, 19), r.x + r.w, y);
+}
+
+// Rated in camera: gold corner lines just outside the image, so frames that caught the eye
+// stand out in All frames too without covering any of the picture. They sit inside the pick outline.
+function drawRated(ctx, r) {
+  const m = 7, L = RATED_CORNER;
+  const x0 = r.x - m, y0 = r.y - m, x1 = r.x + r.w + m, y1 = r.y + r.h + m;
+  ctx.strokeStyle = COLOR.label;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (const [x, y, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
+    ctx.moveTo(x + dx * L, y);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x, y + dy * L);
+  }
+  ctx.stroke();
+}
+
+// "2026:11:01 18:44:15" -> "1 Nov 2026"
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function formatDate(time) {
+  const [y, m, d] = time.slice(0, 10).split(':').map(Number);
+  return y && m && d ? `${d} ${MONTHS[m - 1]} ${y}` : '';
 }
 
 // Thin divider with a count where unrated frames were skipped.

@@ -38,6 +38,20 @@ Tap **?** in the app for the full guide.
 
 Open the link in Chrome or Edge and choose **Install app** (PC) or **Add to Home screen** (Android).
 
+## Moving picked RAWs on a PC (optional)
+
+The app never moves your photos. If you want the picked RAWs in the `Picks` folder too, for
+example to open just those in DxO PhotoLab, `tools/move-picks.ps1` does it from the picks list of
+the latest export. It moves each picked RAW with its sidecars (DxO `.dop`, `.xmp`), never
+overwrites, and only shows what it would do unless you add `-Apply`:
+
+```
+powershell -ExecutionPolicy Bypass -File tools\move-picks.ps1 "F:\Photos\Shoot"
+powershell -ExecutionPolicy Bypass -File tools\move-picks.ps1 "F:\Photos\Shoot" -Apply
+```
+
+`-Undo -Apply` moves them back; `-List <file>` uses an older picks list.
+
 ## Running it yourself
 
 Plain HTML, CSS and JavaScript modules, no build step. Serve the folder over HTTP(S) with any
