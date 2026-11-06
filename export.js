@@ -97,6 +97,42 @@ async function copyPicks(picks, out, progress) {
   return { copied, skipped, clashes, failed, missing, rawOnly };
 }
 
+// Move RAWs (folder mode, only when the user asks): each frame's RAW, with its DxO .dop and any
+// .xmp, between the shoot folder and Picks. Only a true move: if the browser can't move files,
+// nothing is copied or deleted. Never overwrites: a frame with any of its files already at the
+// destination is left where it is and reported. Moved frames get their RAW from its new place.
+export async function moveRaws(frames, folder, toPicks) {
+  if (!('move' in FileSystemFileHandle.prototype)) throw new Error("This browser can't move files.");
+  const picks = await folder.getDirectoryHandle('Picks', { create: true });
+  const [from, to] = toPicks ? [folder, picks] : [picks, folder];
+  const moved = [], clashes = [], failed = [];
+  for (const f of frames) {
+    const raw = f.raw.name, base = raw.replace(/\.[^.]+$/, '');
+    const rawHandle = await fileHandle(from, raw);
+    if (!rawHandle) { failed.push(`${raw} (not found)`); continue; }
+    const handles = [rawHandle];
+    for (const name of [`${raw}.dop`, `${raw}.xmp`, `${base}.xmp`]) {
+      const h = await fileHandle(from, name);
+      if (h) handles.push(h);
+    }
+    const there = [];
+    for (const h of handles) if (await fileHandle(to, h.name)) there.push(h.name);
+    if (there.length) { clashes.push(`${raw} (${there.join(', ')})`); continue; }
+    try {
+      for (const h of handles) await h.move(to);
+      f.raw = Object.assign(await rawHandle.getFile(), { handle: rawHandle, inPicks: toPicks });
+      moved.push(raw);
+    } catch (e) {
+      failed.push(`${raw} (${e.message})`);
+    }
+  }
+  return { moved, clashes, failed };
+}
+
+async function fileHandle(dir, name) {
+  try { return await dir.getFileHandle(name); } catch { return null; }
+}
+
 // Size of the file of that name in dir, or null if there is none.
 async function existingSize(dir, name) {
   try { return (await (await dir.getFileHandle(name)).getFile()).size; } catch { return null; }

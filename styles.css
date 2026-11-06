@@ -21,7 +21,7 @@ body {
   flex-direction: column;
 }
 
-#toolbar, #loupe .bar, #help .bar {
+#toolbar, #loupe .bar, #help .bar, #move .bar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -112,7 +112,7 @@ body.compact #toolbar .full { display: none; }
   cursor: grab;
 }
 
-#help {
+#help, #move {
   width: min(680px, calc(100% - 32px));
   max-height: calc(100% - 32px);
   padding: 0;
@@ -122,12 +122,15 @@ body.compact #toolbar .full { display: none; }
   color: var(--text);
 }
 
-#help[open] { display: flex; flex-direction: column; }
-#help::backdrop { background: rgba(0, 0, 0, 0.6); }
-#help .bar { position: sticky; top: 0; }
+#help[open], #move[open] { display: flex; flex-direction: column; }
+#help::backdrop, #move::backdrop { background: rgba(0, 0, 0, 0.6); }
+#help .bar, #move .bar { position: sticky; top: 0; }
 
 .help-body { overflow-y: auto; padding: 4px 20px 20px; line-height: 1.5; }
 .help-body h2 { margin: 18px 0 4px; font-size: 15px; color: #d9b25f; }
 .help-body p, .help-body ul { margin: 0; }
 .help-body ul { padding-left: 20px; }
 .help-body li { margin: 4px 0; }
+
+.move-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 16px 0; }
+#move-result { white-space: pre-wrap; color: #d9b25f; }

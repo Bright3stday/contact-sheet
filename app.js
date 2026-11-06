@@ -4,7 +4,7 @@ import { SHEET_W, SHEET_H, PER_SHEET, buildSheets, cellAt, cellRect, drawSheet, 
 import { openLoupe } from './loupe.js';
 import { showLens, hideLens, lensBitmap } from './magnifier.js';
 import { marks, initMarks, sheetItems, applySession, resetMarks, findSavedSession, saveSession } from './marks.js';
-import { exportAll } from './export.js';
+import { exportAll, moveRaws } from './export.js';
 
 const folderMode = 'showDirectoryPicker' in window;
 
@@ -29,6 +29,7 @@ $('open').addEventListener('click', async () => {
   let dir;
   try { dir = await window.showDirectoryPicker({ mode: 'readwrite' }); } catch { return; }
   state.dir = dir;
+  $('move-raws').hidden = false;
   load(await filesFromFolder(dir));
 });
 
@@ -36,6 +37,7 @@ $('open-files').addEventListener('click', () => $('files').click());
 
 $('files').addEventListener('change', e => {
   state.dir = null;
+  $('move-raws').hidden = true;
   load(filesFromInput(e.target.files));
   e.target.value = '';
 });
@@ -418,6 +420,59 @@ function setCompact(on) {
 }
 $('compact').addEventListener('click', () => setCompact(!document.body.classList.contains('compact')));
 try { setCompact(localStorage.getItem('compact') === 'on'); } catch { setCompact(false); }
+
+// ---- Move RAWs (Open folder only): picked RAWs into Picks, and back again ----
+
+function rawsToMove() {
+  const withRaw = state.frames.filter(f => f.raw?.handle);
+  const picked = f => marks.picks.has(f.key);
+  return {
+    in: withRaw.filter(f => picked(f) && !f.raw.inPicks),
+    back: withRaw.filter(f => !picked(f) && f.raw.inPicks),
+    allBack: withRaw.filter(f => f.raw.inPicks),
+  };
+}
+
+const MOVES = {
+  'move-in': { set: 'in', toPicks: true, label: n => `Move picked RAWs into Picks (${n})` },
+  'move-back': { set: 'back', toPicks: false, label: n => `Move unpicked RAWs back to the shoot folder (${n})` },
+  'move-all-back': { set: 'allBack', toPicks: false, label: n => `Move all RAWs back to the shoot folder (${n})` },
+};
+
+function updateMoveButtons(busy = false) {
+  const sets = rawsToMove();
+  for (const [id, m] of Object.entries(MOVES)) {
+    const n = sets[m.set].length;
+    $(id).textContent = m.label(n);
+    $(id).disabled = busy || !n;
+  }
+}
+
+$('move-raws').addEventListener('click', () => {
+  $('move-result').textContent = '';
+  updateMoveButtons();
+  $('move').showModal();
+});
+$('move-close').addEventListener('click', () => $('move').close());
+
+for (const [id, m] of Object.entries(MOVES)) {
+  $(id).addEventListener('click', async () => {
+    const frames = rawsToMove()[m.set];
+    if (!frames.length || !confirm(`${m.label(frames.length)}, with their .dop and .xmp files?`)) return;
+    updateMoveButtons(true);
+    const lines = [];
+    try {
+      const r = await moveRaws(frames, state.dir, m.toPicks);
+      lines.push(`Moved ${r.moved.length} RAW${r.moved.length === 1 ? '' : 's'} ${m.toPicks ? 'into Picks' : 'back to the shoot folder'}.`);
+      if (r.clashes.length) lines.push(`Not moved, a file of that name is already there: ${r.clashes.join(', ')}`);
+      if (r.failed.length) lines.push(`Could not move: ${r.failed.join(', ')}`);
+    } catch (e) {
+      lines.push(`Nothing was moved. ${e.message}`);
+    }
+    $('move-result').textContent = lines.join('\n');
+    updateMoveButtons();
+  });
+}
 
 // ---- Help: opens by itself on the first visit ----
 

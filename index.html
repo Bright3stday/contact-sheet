@@ -32,6 +32,7 @@
     <span class="spacer"></span>
     <button id="magnify" class="full" aria-pressed="true">Magnifier</button>
     <button id="export" class="full">Export</button>
+    <button id="move-raws" class="full" hidden>Move RAWs</button>
     <button id="marks-export" class="full">Export marks</button>
     <button id="marks-import" class="full">Import marks</button>
     <input id="marks-file" type="file" accept=".json,application/json" hidden>
@@ -121,9 +122,33 @@
       <p><b>Export marks</b> saves your picks and drawings as a small file. On the other device, open the
         same photos, then <b>Import marks</b>.</p>
 
+      <h2>Move RAWs</h2>
+      <p>After <b>Open folder</b>, <b>Move RAWs</b> moves the picked RAWs, each with its DxO .dop and any .xmp,
+        into Picks, so an editor can open just the picks. It can move them back too, all or only the ones
+        you have since unpicked. It only moves when you press a button there, and never overwrites.
+        The shoot still opens complete, Picks included.</p>
+
       <h2>What it never does</h2>
-      <p>It never changes, moves, renames or deletes your photos; it only reads them and adds files to
-        Picks. It doesn't develop RAWs, and other camera RAW formats are not read.</p>
+      <p>It never changes, renames or deletes your photos, and only moves RAWs when you use Move RAWs.
+        It doesn't develop RAWs, and other camera RAW formats are not read.</p>
+    </div>
+  </dialog>
+  <dialog id="move">
+    <header class="bar">
+      <strong>Move RAWs</strong>
+      <span class="spacer"></span>
+      <button id="move-close">Close</button>
+    </header>
+    <div class="help-body">
+      <p>Moves RAWs, each with its DxO .dop and any .xmp, between this shoot folder and its Picks
+        folder, so an editor such as DxO PhotoLab can open just the picks. Nothing is copied, deleted
+        or overwritten, and the shoot still opens complete here.</p>
+      <div class="move-actions">
+        <button id="move-in"></button>
+        <button id="move-back"></button>
+        <button id="move-all-back"></button>
+      </div>
+      <p id="move-result"></p>
     </div>
   </dialog>
   <script type="module" src="app.js"></script>

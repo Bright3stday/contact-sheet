@@ -8,8 +8,8 @@ way you would with a loupe and a printed sheet.
 ## Private and offline
 
 Your photos never leave your device. Nothing is uploaded and there are no analytics. After the
-first visit the app works without a connection. It only reads your photos: it never changes,
-moves, renames or deletes them.
+first visit the app works without a connection. It never changes, renames or deletes your photos. It
+moves picked RAWs into a `Picks` folder only when you ask it to, and can move them back.
 
 ## What it does
 
@@ -38,10 +38,10 @@ Tap **?** in the app for the full guide.
 
 Open the link in Chrome or Edge and choose **Install app** (PC) or **Add to Home screen** (Android).
 
-## Moving picked RAWs on a PC (optional)
+## Moving picked RAWs
 
-The app never moves your photos. If you want the picked RAWs in the `Picks` folder too, for
-example to open just those in DxO PhotoLab, `tools/move-picks.ps1` does it from the picks list of
+In the app, after **Open folder**, **Move RAWs** moves the picked RAWs with their sidecars into
+`Picks` and back. As an alternative on a PC, `tools/move-picks.ps1` does the same from the picks list of
 the latest export. It moves each picked RAW with its sidecars (DxO `.dop`, `.xmp`), never
 overwrites, and only shows what it would do unless you add `-Apply`:
 
@@ -51,6 +51,10 @@ powershell -ExecutionPolicy Bypass -File tools\move-picks.ps1 "F:\Photos\Shoot" 
 ```
 
 `-Undo -Apply` moves them back; `-List <file>` uses an older picks list.
+
+Easier: drag the shoot folder onto `tools\move-picks.cmd`, or onto a desktop shortcut to it
+(right-click it → Show more options → Send to → Desktop). It shows what would move and asks
+before moving anything.
 
 ## Running it yourself
 

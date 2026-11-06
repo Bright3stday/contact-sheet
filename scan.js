@@ -23,13 +23,31 @@ function ext(name) {
   return i < 0 ? '' : name.slice(i + 1).toLowerCase();
 }
 
-// Folder mode: top level of the picked folder.
+// Folder mode: top level of the picked folder, plus the RAWs moved into its Picks folder, so a
+// shoot always opens complete. The JPEGs in Picks are copies made by Export and are skipped, as is
+// a RAW in Picks whose name is also in the shoot folder (a copy from an earlier version).
+// Each file keeps its handle and where it is (inPicks), for moving.
 export async function filesFromFolder(dir) {
   const files = [];
+  let picks = null;
   for await (const entry of dir.values()) {
-    if (entry.kind === 'file' && isImage(entry.name)) files.push(await entry.getFile());
+    if (entry.kind === 'file' && isImage(entry.name)) files.push(await fileWithHandle(entry, false));
+    if (entry.kind === 'directory' && entry.name === 'Picks') picks = entry;
+  }
+  if (picks) {
+    const here = new Set(files.map(f => f.name.toLowerCase()));
+    for await (const entry of picks.values()) {
+      if (entry.kind === 'file' && RAW_EXT.includes(ext(entry.name)) && !here.has(entry.name.toLowerCase())) {
+        files.push(await fileWithHandle(entry, true));
+      }
+    }
   }
   return groupFiles(files);
+}
+
+async function fileWithHandle(handle, inPicks) {
+  const file = await handle.getFile();
+  return Object.assign(file, { handle, inPicks });
 }
 
 // Files mode: the selected files.

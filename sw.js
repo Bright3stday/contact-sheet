@@ -1,6 +1,6 @@
 // Offline: the app's own files are cached at install and always served from the cache.
 // Bump VERSION on every deploy so installed copies pick up the new files.
-const VERSION = 'contact-sheet-v9';
+const VERSION = 'contact-sheet-v10';
 const FILES = [
   './',
   'index.html',
